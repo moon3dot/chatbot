@@ -3,9 +3,9 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const connectDB = require('./config/database');
-const errorHandler = require('./middleware/errorHandler');
-const chatHandler = require('./socket/chatHandler');
+const connectDB = require('./backend/config/database');
+const errorHandler = require('./backend/middleware/errorHandler');
+const chatHandler = require('./backend/socket/chatHandler');
 
 // اتصال به دیتابیس
 connectDB();
@@ -29,11 +29,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/sites', require('./routes/sites'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api', require('./routes/chat'));
-app.use('/api', require('./routes/reports'));
+app.use('/api/auth', require('./backend/routes/auth'));
+app.use('/api/sites', require('./backend/routes/sites'));
+app.use('/api/admin', require('./backend/routes/admin'));
+app.use('/api', require('./backend/routes/chat'));
+app.use('/api', require('./backend/routes/reports'));
 
 // Route اصلی
 app.get('/', (req, res) => {
