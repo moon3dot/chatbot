@@ -38,22 +38,50 @@ const siteSchema = new mongoose.Schema({
       default: 'light'
     },
     autoCloseChat: {
-      enabled: Boolean,
+      enabled: { type: Boolean, default: false },
       timeout: {
         type: Number,
         default: 300000 // 5 دقیقه
       }
     },
     workingHours: {
-      enabled: Boolean,
+      enabled: { type: Boolean, default: false },
       schedule: {
-        saturday: { start: '09:00', end: '17:00', active: true },
-        sunday: { start: '09:00', end: '17:00', active: true },
-        monday: { start: '09:00', end: '17:00', active: true },
-        tuesday: { start: '09:00', end: '17:00', active: true },
-        wednesday: { start: '09:00', end: '17:00', active: true },
-        thursday: { start: '09:00', end: '17:00', active: true },
-        friday: { start: '09:00', end: '17:00', active: false }
+        saturday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        sunday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        monday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        tuesday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        wednesday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        thursday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: true }
+        },
+        friday: { 
+          start: { type: String, default: '09:00' },
+          end: { type: String, default: '17:00' },
+          active: { type: Boolean, default: false }
+        }
       }
     },
     allowAnonymousChat: {
