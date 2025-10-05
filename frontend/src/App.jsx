@@ -11,6 +11,7 @@ import SiteManagement from './pages/SiteManagement';
 import AdminManagement from './pages/AdminManagement';
 import AdminPanel from './pages/AdminPanel';
 import Reports from './pages/Reports';
+import UserWidget from './pages/UserWidget';
 
 // Components
 import PrivateRoute from './components/PrivateRoute';
@@ -44,6 +45,9 @@ function App() {
             path="/register" 
             element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} 
           />
+
+          {/* Widget (بدون احراز هویت) */}
+          <Route path="/widget/user" element={<UserWidget />} />
 
           {/* مسیرهای خصوصی */}
           <Route element={<PrivateRoute />}>

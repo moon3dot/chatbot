@@ -64,7 +64,7 @@ exports.createSite = async (req, res, next) => {
       });
     }
 
-    // ایجاد سایت
+    // ایجاد سایت (توکن به صورت خودکار در pre-save hook ساخته میشه)
     const site = await Site.create({
       userId: req.user._id,
       siteName,

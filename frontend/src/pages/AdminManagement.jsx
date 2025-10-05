@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { adminAPI, siteAPI } from '../utils/api';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import {
   Users,
@@ -41,15 +41,20 @@ const AdminManagement = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [siteResponse, adminsResponse] = await Promise.all([
-        siteAPI.getById(siteId),
-        adminAPI.getAll(siteId),
-      ]);
+      
+      // دریافت اطلاعات سایت
+      const siteResponse = await api.get(`/sites/${siteId}`);
       setSite(siteResponse.data.data);
+      
+      // دریافت ادمین‌ها
+      const adminsResponse = await api.get(`/sites/${siteId}/admins`);
       setAdmins(adminsResponse.data.data || []);
     } catch (error) {
-      toast.error('خطا در دریافت اطلاعات');
-      navigate('/sites');
+      console.error('Error:', error);
+      toast.error(error.response?.data?.message || 'خطا در دریافت اطلاعات');
+      if (error.response?.status === 404) {
+        navigate('/sites');
+      }
     } finally {
       setLoading(false);
     }
@@ -66,9 +71,8 @@ const AdminManagement = () => {
     try {
       if (selectedAdmin) {
         // ویرایش
-        const response = await adminAPI.update(
-          siteId,
-          selectedAdmin._id,
+        const response = await api.put(
+          `/sites/${siteId}/admins/${selectedAdmin._id}`,
           formData
         );
         setAdmins(
@@ -79,7 +83,7 @@ const AdminManagement = () => {
         toast.success('ادمین با موفقیت بروزرسانی شد');
       } else {
         // ایجاد جدید
-        const response = await adminAPI.create(siteId, formData);
+        const response = await api.post(`/sites/${siteId}/admins`, formData);
         setAdmins([...admins, response.data.data]);
         toast.success('ادمین با موفقیت ایجاد شد');
       }
@@ -93,7 +97,7 @@ const AdminManagement = () => {
     if (!confirm('آیا از حذف این ادمین اطمینان دارید؟')) return;
 
     try {
-      await adminAPI.delete(siteId, adminId);
+      await api.delete(`/sites/${siteId}/admins/${adminId}`);
       setAdmins(admins.filter((admin) => admin._id !== adminId));
       toast.success('ادمین با موفقیت حذف شد');
     } catch (error) {

@@ -19,8 +19,7 @@ const siteSchema = new mongoose.Schema({
   },
   token: {
     type: String,
-    unique: true,
-    required: true
+    unique: true
   },
   status: {
     type: String,
@@ -100,7 +99,7 @@ const siteSchema = new mongoose.Schema({
 });
 
 // تولید توکن منحصر به فرد قبل از ذخیره
-siteSchema.pre('save', function(next) {
+siteSchema.pre('save', async function(next) {
   if (!this.token) {
     this.token = crypto.randomBytes(32).toString('hex');
   }
