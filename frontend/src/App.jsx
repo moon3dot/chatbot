@@ -12,6 +12,7 @@ import AdminManagement from './pages/AdminManagement';
 import AdminPanel from './pages/AdminPanel';
 import Reports from './pages/Reports';
 import UserWidget from './pages/UserWidget';
+import AdminWidget from './pages/AdminWidget';
 
 // Components
 import PrivateRoute from './components/PrivateRoute';
@@ -48,6 +49,8 @@ function App() {
 
           {/* Widget (بدون احراز هویت) */}
           <Route path="/widget/user" element={<UserWidget />} />
+          <Route path="/widget/admin" element={<AdminWidget />} />
+          <Route path="/widget/admin/panel/:siteId" element={<AdminPanel />} />
 
           {/* مسیرهای خصوصی */}
           <Route element={<PrivateRoute />}>

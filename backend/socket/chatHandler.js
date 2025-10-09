@@ -59,7 +59,7 @@ const chatHandler = (io) => {
     // پیوستن به چت
     socket.on('join-chat', async (data) => {
       try {
-        const { chatId } = data;
+        const { chatId, userType, userId } = data;
 
         if (!chatId) {
           socket.emit('error', { message: 'شناسه چت ارسال نشده' });
@@ -70,6 +70,18 @@ const chatHandler = (io) => {
         if (!chat) {
           socket.emit('error', { message: 'چت یافت نشد' });
           return;
+        }
+
+        if (!socket.userType) {
+          socket.userType = userType || 'customer';
+        }
+
+        if (!socket.userId) {
+          if (socket.userType === 'admin') {
+            socket.userId = userId || chat.adminId;
+          } else {
+            socket.userId = userId || chat.customerId || chat._id;
+          }
         }
 
         socket.join(chatId);
@@ -105,7 +117,10 @@ const chatHandler = (io) => {
     // ارسال پیام
     socket.on('send-message', async (data) => {
       try {
-        const { chatId, content, type, replyTo } = data;
+        const { chatId, replyTo } = data;
+        const content = data.content || data.message;
+        const messageType = data.type || 'text';
+        let senderType = data.senderType || socket.userType || 'customer';
 
         if (!chatId || !content) {
           socket.emit('error', { message: 'اطلاعات ناقص است' });
@@ -118,12 +133,38 @@ const chatHandler = (io) => {
           return;
         }
 
+        if (!socket.userType) {
+          socket.userType = senderType;
+        } else {
+          senderType = socket.userType;
+        }
+
+        if (!socket.userId) {
+          if (senderType === 'admin') {
+            socket.userId = data.senderId || chat.adminId;
+          } else {
+            socket.userId = data.senderId || chat.customerId || chat._id;
+          }
+        }
+
+        const senderId = data.senderId || socket.userId;
+
+        const senderName = data.senderName || (senderType === 'admin'
+          ? 'ادمین'
+          : chat.customerName || 'کاربر');
+
+        if (!senderId) {
+          socket.emit('error', { message: 'شناسه فرستنده نامعتبر است' });
+          return;
+        }
+
         const message = await Message.create({
           chatId,
-          senderId: socket.userId,
-          senderType: socket.userType,
+          senderId,
+          senderType,
+          senderName,
           content,
-          type: type || 'text',
+          type: messageType,
           replyTo
         });
 
@@ -135,7 +176,7 @@ const chatHandler = (io) => {
           chat.status = 'active';
         }
 
-        if (socket.userType === 'customer') {
+        if (senderType === 'customer') {
           chat.unreadCount += 1;
         }
 

@@ -17,6 +17,7 @@ const { protectUser, protectAdmin } = require('../middleware/auth');
 
 // دریافت چت‌های یک سایت (نیاز به احراز هویت صاحب سایت)
 router.get('/sites/:siteId/chats', protectUser, getAllChats);
+router.get('/admin/sites/:siteId/chats', protectAdmin, getAllChats);
 
 // ایجاد چت جدید (عمومی - برای کاربران سایت)
 router.post('/sites/:siteId/chats', createChat);

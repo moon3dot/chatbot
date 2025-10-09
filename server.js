@@ -30,9 +30,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', require('./backend/routes/auth'));
+app.use('/api', require('./backend/routes/chat'));
 app.use('/api/sites', require('./backend/routes/sites'));
 app.use('/api/admin', require('./backend/routes/admin'));
-app.use('/api', require('./backend/routes/chat'));
 app.use('/api', require('./backend/routes/reports'));
 
 // Route اصلی

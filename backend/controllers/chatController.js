@@ -1,7 +1,7 @@
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const Customer = require('../models/Customer');
-const Site = require('../models/Site');
+const { resolveSiteByIdentifier } = require('../utils/siteHelper');
 
 // @desc    دریافت تمام چت‌های یک سایت
 // @route   GET /api/sites/:siteId/chats
@@ -11,8 +11,18 @@ exports.getAllChats = async (req, res, next) => {
     const { siteId } = req.params;
     const { status, adminId, search } = req.query;
 
+    const isAdminRequest = Boolean(req.admin);
+    const isUserRequest = Boolean(req.user);
+
+    if (!isAdminRequest && !isUserRequest) {
+      return res.status(401).json({
+        success: false,
+        message: 'دسترسی غیرمجاز'
+      });
+    }
+
     // بررسی مالکیت سایت
-    const site = await Site.findById(siteId);
+    const site = await resolveSiteByIdentifier(siteId);
     if (!site) {
       return res.status(404).json({
         success: false,
@@ -20,15 +30,24 @@ exports.getAllChats = async (req, res, next) => {
       });
     }
 
-    if (site.userId.toString() !== req.user._id.toString()) {
+    if (isUserRequest && site.userId.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'شما مالک این سایت نیستید'
       });
     }
 
+    if (isAdminRequest) {
+      if (!req.admin.siteId || site._id.toString() !== req.admin.siteId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'دسترسی به این سایت برای شما مجاز نیست'
+        });
+      }
+    }
+
     // ساخت query
-    let query = { siteId };
+    let query = { siteId: site._id };
 
     if (status && status !== 'all') {
       query.status = status;
@@ -95,7 +114,7 @@ exports.createChat = async (req, res, next) => {
     const { customerName, customerEmail, customerPhone, subject, metadata } = req.body;
 
     // بررسی وجود سایت
-    const site = await Site.findById(siteId);
+    const site = await resolveSiteByIdentifier(siteId);
     if (!site || site.status !== 'active') {
       return res.status(404).json({
         success: false,
@@ -106,28 +125,38 @@ exports.createChat = async (req, res, next) => {
     // پیدا کردن یا ایجاد customer
     let customer = null;
     if (customerEmail) {
-      customer = await Customer.findOne({ siteId, email: customerEmail });
+      customer = await Customer.findOne({ siteId: site._id, email: customerEmail });
       if (!customer) {
         customer = await Customer.create({
-          siteId,
+          siteId: site._id,
           name: customerName,
           email: customerEmail,
           phone: customerPhone,
           metadata
         });
       }
+    } else {
+      customer = await Customer.create({
+        siteId: site._id,
+        name: customerName || 'کاربر ناشناس',
+        phone: customerPhone,
+        metadata,
+        isRegistered: false
+      });
     }
+
+    const isAnonymous = !customerEmail;
 
     // ایجاد چت
     const chat = await Chat.create({
-      siteId,
+      siteId: site._id,
       customerId: customer ? customer._id : null,
       customerName: customerName || 'کاربر ناشناس',
       customerEmail,
       customerPhone,
       subject,
       metadata,
-      isAnonymous: !customer
+      isAnonymous
     });
 
     // بروزرسانی تعداد چت‌های customer
@@ -135,6 +164,11 @@ exports.createChat = async (req, res, next) => {
       customer.totalChats += 1;
       customer.lastChatAt = Date.now();
       await customer.save();
+    }
+
+    if (!chat.customerId && customer) {
+      chat.customerId = customer._id;
+      await chat.save();
     }
 
     res.status(201).json({

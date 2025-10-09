@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { useAdminAuthStore } from '../store/adminAuthStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -14,7 +15,10 @@ const api = axios.create({
 // Interceptor برای افزودن توکن به هر درخواست
 api.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().token;
+    const userToken = useAuthStore.getState().token;
+    const adminToken = useAdminAuthStore.getState().token;
+    const token = userToken || adminToken;
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -30,9 +34,21 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // اگر توکن منقضی شده، کاربر رو لاگ اوت کن
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const hasUser = useAuthStore.getState().isAuthenticated;
+      const hasAdmin = useAdminAuthStore.getState().isAuthenticated;
+
+      if (hasUser) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+      } else if (hasAdmin) {
+        const logoutAdmin = useAdminAuthStore.getState().logout;
+        logoutAdmin();
+        if (window.location.pathname.startsWith('/widget/admin')) {
+          window.location.reload();
+        } else {
+          window.location.href = '/widget/admin';
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -67,7 +83,11 @@ export const adminAPI = {
 
 // Chat APIs
 export const chatAPI = {
-  getAll: (siteId, filters) => api.get(`/sites/${siteId}/chats`, { params: filters }),
+  getAll: (siteId, filters, options = {}) => {
+    const isAdmin = options.asAdmin || useAdminAuthStore.getState().isAuthenticated;
+    const endpoint = isAdmin ? `/admin/sites/${siteId}/chats` : `/sites/${siteId}/chats`;
+    return api.get(endpoint, { params: filters });
+  },
   getById: (chatId) => api.get(`/chats/${chatId}`),
   getMessages: (chatId) => api.get(`/chats/${chatId}/messages`),
   sendMessage: (chatId, data) => api.post(`/chats/${chatId}/messages`, data),

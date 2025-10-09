@@ -13,6 +13,7 @@ const UserWidget = () => {
   });
   const [chatStarted, setChatStarted] = useState(false);
   const [chatId, setChatId] = useState(null);
+  const [customerId, setCustomerId] = useState(null);
   const messagesEndRef = useRef(null);
 
   // دریافت token از URL
@@ -20,9 +21,13 @@ const UserWidget = () => {
   const siteToken = urlParams.get('token');
 
   useEffect(() => {
-    if (chatStarted && chatId) {
+    if (chatStarted && chatId && customerId) {
       const socket = initializeSocket();
-      socket.emit(socketEvents.JOIN_CHAT, { chatId });
+      socket.emit(socketEvents.JOIN_CHAT, {
+        chatId,
+        userType: 'customer',
+        userId: customerId,
+      });
 
       socket.on(socketEvents.NEW_MESSAGE, (message) => {
         setMessages((prev) => [...prev, message]);
@@ -33,7 +38,7 @@ const UserWidget = () => {
         socket.off(socketEvents.NEW_MESSAGE);
       };
     }
-  }, [chatStarted, chatId]);
+  }, [chatStarted, chatId, customerId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -60,6 +65,7 @@ const UserWidget = () => {
       const data = await response.json();
       if (data.success) {
         setChatId(data.data._id);
+        setCustomerId(data.data.customerId);
         setChatStarted(true);
       }
     } catch (error) {
@@ -69,10 +75,17 @@ const UserWidget = () => {
 
   const sendMessage = async () => {
     if (!inputMessage.trim()) return;
+    if (!customerId) {
+      console.error('شناسه مشتری یافت نشد');
+      return;
+    }
 
     const socket = getSocket();
     socket.emit(socketEvents.SEND_MESSAGE, {
       chatId,
+      senderId: customerId,
+      senderType: 'customer',
+      senderName: customerInfo.name || 'کاربر',
       content: inputMessage,
       type: 'text'
     });

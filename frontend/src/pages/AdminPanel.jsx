@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useChatStore } from '../store/chatStore';
 import { chatAPI } from '../utils/api';
 import { initializeSocket, getSocket, socketEvents } from '../utils/socket';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../store/authStore';
+import { useAdminAuthStore } from '../store/adminAuthStore';
 import {
   MessageSquare,
   Send,
@@ -30,17 +32,52 @@ const AdminPanel = () => {
     setActiveChat,
     setMessages,
     addMessage,
+    addChat,
     setTyping,
   } = useChatStore();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isUserAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userToken = useAuthStore((state) => state.token);
+
+  const isAdminAuthenticated = useAdminAuthStore((state) => state.isAuthenticated);
+  const adminToken = useAdminAuthStore((state) => state.token);
+  const adminInfo = useAdminAuthStore((state) => state.admin);
 
   const [loading, setLoading] = useState(true);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, waiting, active, closed
+  const isWidgetRoute = location.pathname.startsWith('/widget/admin');
 
   useEffect(() => {
+    if (!isUserAuthenticated && !isAdminAuthenticated) {
+      if (isWidgetRoute) {
+        navigate(`/widget/admin${location.search || ''}`, { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [isUserAuthenticated, isAdminAuthenticated, isWidgetRoute, location.search, navigate]);
+
+  useEffect(() => {
+    if (!siteId) {
+      return;
+    }
+
+    if (!isUserAuthenticated && !isAdminAuthenticated) {
+      return;
+    }
+
     fetchChats();
-    const socket = initializeSocket();
+
+    const socket = initializeSocket(isAdminAuthenticated ? adminToken : userToken);
+
+    if (isAdminAuthenticated && adminToken) {
+      socket.emit('authenticate', { token: adminToken, userType: 'admin' });
+    }
 
     // Listen to socket events
     socket.on(socketEvents.NEW_CHAT_REQUEST, handleNewChat);
@@ -52,17 +89,25 @@ const AdminPanel = () => {
       socket.off(socketEvents.NEW_MESSAGE);
       socket.off(socketEvents.USER_TYPING);
     };
-  }, [siteId]);
+  }, [siteId, isUserAuthenticated, isAdminAuthenticated, adminToken, userToken]);
 
-  const fetchChats = async () => {
+  const fetchChats = async (statusOverride = filterStatus) => {
+    if (!siteId) return;
+    if (!isUserAuthenticated && !isAdminAuthenticated) return;
+
     try {
       setLoading(true);
-      const response = await chatAPI.getAll(siteId, {
-        status: filterStatus === 'all' ? undefined : filterStatus,
+      const filters = {};
+      if (statusOverride && statusOverride !== 'all') {
+        filters.status = statusOverride;
+      }
+      const response = await chatAPI.getAll(siteId, filters, {
+        asAdmin: isAdminAuthenticated,
       });
       setChats(response.data.data || []);
     } catch (error) {
-      toast.error('خطا در دریافت چت‌ها');
+      const message = error.response?.data?.message || 'خطا در دریافت چت‌ها';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -76,7 +121,12 @@ const AdminPanel = () => {
 
       // Join chat room
       const socket = getSocket();
-      socket.emit(socketEvents.JOIN_CHAT, { chatId: chat._id });
+      const joinPayload = { chatId: chat._id };
+      if (isAdminAuthenticated && adminInfo?._id) {
+        joinPayload.userType = 'admin';
+        joinPayload.userId = adminInfo._id;
+      }
+      socket.emit(socketEvents.JOIN_CHAT, joinPayload);
     } catch (error) {
       toast.error('خطا در دریافت پیام‌ها');
     }
@@ -88,11 +138,19 @@ const AdminPanel = () => {
 
     try {
       const socket = getSocket();
-      socket.emit(socketEvents.SEND_MESSAGE, {
+      const payload = {
         chatId: activeChat._id,
         message: messageInput,
         type: 'text',
-      });
+      };
+
+      if (isAdminAuthenticated && adminInfo?._id) {
+        payload.senderType = 'admin';
+        payload.senderId = adminInfo._id;
+        payload.senderName = adminInfo.fullName || adminInfo.username || 'ادمین';
+      }
+
+      socket.emit(socketEvents.SEND_MESSAGE, payload);
 
       setMessageInput('');
     } catch (error) {
@@ -101,7 +159,7 @@ const AdminPanel = () => {
   };
 
   const handleNewChat = (chat) => {
-    setChats([chat, ...chats]);
+    addChat(chat);
     toast.success('درخواست چت جدید دریافت شد');
   };
 
@@ -121,6 +179,11 @@ const AdminPanel = () => {
       setTyping(true);
       setTimeout(() => setTyping(false), 3000);
     }
+  };
+
+  const handleStatusFilterChange = (status) => {
+    setFilterStatus(status);
+    fetchChats(status);
   };
 
   const filteredChats = chats.filter((chat) => {
@@ -177,7 +240,7 @@ const AdminPanel = () => {
             {['all', 'waiting', 'active', 'closed'].map((status) => (
               <button
                 key={status}
-                onClick={() => setFilterStatus(status)}
+                onClick={() => handleStatusFilterChange(status)}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   filterStatus === status
                     ? 'bg-primary-600 text-white'

@@ -1,6 +1,7 @@
 const Admin = require('../models/Admin');
 const Site = require('../models/Site');
 const generateToken = require('../utils/generateToken');
+const { resolveSiteByIdentifier } = require('../utils/siteHelper');
 
 // @desc    دریافت تمام ادمین‌های یک سایت
 // @route   GET /api/sites/:siteId/admins
@@ -310,18 +311,28 @@ exports.deleteAdmin = async (req, res, next) => {
 // @access  Public
 exports.loginAdmin = async (req, res, next) => {
   try {
-    const { siteId, username, password } = req.body;
+    const { siteId: siteIdentifier, siteToken, token: siteTokenAlt, username, password } = req.body;
 
     // اعتبارسنجی
-    if (!siteId || !username || !password) {
+    const identifier = siteIdentifier || siteToken || siteTokenAlt;
+
+    if (!identifier || !username || !password) {
       return res.status(400).json({
         success: false,
         message: 'لطفاً تمام فیلدها را پر کنید'
       });
     }
 
+    const site = await resolveSiteByIdentifier(identifier);
+    if (!site) {
+      return res.status(404).json({
+        success: false,
+        message: 'سایت یافت نشد'
+      });
+    }
+
     // بررسی وجود ادمین
-    const admin = await Admin.findOne({ siteId, username }).select('+password');
+    const admin = await Admin.findOne({ siteId: site._id, username }).select('+password');
     if (!admin) {
       return res.status(401).json({
         success: false,
